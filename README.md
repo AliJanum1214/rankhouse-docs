@@ -1,55 +1,47 @@
-# Mintlify Starter Kit
+# RankHouse developer docs
 
-Use the starter kit to get your docs deployed and ready to customize.
+The Mintlify site for the RankHouse **publishing API**: the endpoints a custom
+website builds so RankHouse can publish posts and SEO updates to it.
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+Pushes to `main` deploy automatically through the Mintlify GitHub app.
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+## Where the facts come from
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
+Every page describes what the RankHouse server actually sends. The source of
+truth lives in the main RankHouse repo:
 
-## AI-assisted writing
+| Topic | File in the RankHouse repo |
+| --- | --- |
+| Headers, signing, handshake, capabilities | `server/controllers/integrations/custom/index.js` (`callCustom`, `connectCustom`) |
+| New post body | same file, `buildCustomPostBody` |
+| SEO update body | `server/controllers/integrations/platform/postStructure.js`, `buildPageSeoBody` |
+| Page list fields | `server/controllers/integrations/platform/syncSitePages.js` |
+| Button labels | `client/src/components/account/AccountIntegrations.js` |
 
-Set up your AI coding tool to work with Mintlify:
+Change the server first, then the docs.
+
+## Preview
 
 ```bash
-npx skills add https://mintlify.com/docs
+npx mint dev            # http://localhost:3000
 ```
 
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
+## Check before pushing
 
-See the [AI tools guides](/ai-tools) for tool-specific setup.
-
-## Development
-
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
-npm i -g mint
+```bash
+npx mint validate       # docs.json and page frontmatter
+npx mint broken-links   # every internal link resolves
 ```
 
-Run the following command at the root of your documentation, where your `docs.json` is located:
+The sample receivers in `samples/*.mdx` are tested against the server's real
+signing code. The script takes the code straight from the pages, runs each
+sample and sends it real requests:
 
+```bash
+RANKHOUSE_SERVER="../Rank House/server" node tests/check-samples.cjs
 ```
-mint dev
-```
 
-View your local preview at `http://localhost:3000`.
-
-## Publishing changes
-
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
-
-## Need help?
-
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+It needs the RankHouse repo next to this one (with `server/node_modules`
+installed), Python with `fastapi` and `uvicorn`, and PHP. Set `PYTHON` or `PHP`
+to use a specific binary. Run it after any change to a sample or to the
+server's custom-site code.

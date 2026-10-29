@@ -1,0 +1,122 @@
+---
+title: "Authentication"
+description: "Every request carries your key, a timestamp and an HMAC-SHA256 signature. Check all three and refuse anything that doesn't match."
+icon: lock
+---
+
+RankHouse signs every request it sends to your site, the handshake included. Your code checks the request and refuses anything that doesn't match, before it reads or saves a thing.
+
+## The headers
+
+| Header | Value |
+| --- | --- |
+| `X-API-Key` | Your 64-character key |
+| `X-RankHouse-Timestamp` | When RankHouse signed the request, in **milliseconds** since 1 January 1970 (UTC) |
+| `X-RankHouse-Signature` | `HMAC-SHA256(key, timestamp + "." + raw body)`, as lowercase hex |
+| `Content-Type` | `application/json` |
+
+For a request without a body (`GET`), the signed text is the timestamp followed by a dot: `"1761732000000."`.
+
+## Check every request
+
+<Steps>
+  <Step title="Compare the key">
+    `X-API-Key` must equal your stored key. Compare with a constant-time function.
+  </Step>
+  <Step title="Check the timestamp">
+    Refuse requests signed too long ago. Five minutes is a good limit. This stops someone who captured a request from sending it again later.
+  </Step>
+  <Step title="Check the signature">
+    Work out `HMAC-SHA256(key, timestamp + "." + raw body)` yourself and compare it with `X-RankHouse-Signature`, again in constant time.
+  </Step>
+  <Step title="Refuse with 401">
+    If any check fails, answer `401` with `{ "error": "..." }` and save nothing.
+  </Step>
+</Steps>
+
+<Warning>
+Sign the **raw body bytes** exactly as they arrived, before any JSON parsing. If you parse the JSON and serialise it again, spacing or key order can change and the signature won't match.
+</Warning>
+
+<CodeGroup>
+
+```javascript Node.js
+const crypto = require("crypto");
+
+// rawBody: the exact request bytes (a Buffer). In Express:
+// app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }))
+function isFromRankHouse(headers, rawBody, apiKey) {
+  const safeEqual = (a, b) => {
+    const x = Buffer.from(String(a));
+    const y = Buffer.from(String(b));
+    return x.length === y.length && crypto.timingSafeEqual(x, y);
+  };
+  const timestamp = headers["x-rankhouse-timestamp"] || "";
+  if (!safeEqual(headers["x-api-key"] || "", apiKey)) return false;
+  if (!/^\d+$/.test(timestamp) || Math.abs(Date.now() - Number(timestamp)) > 5 * 60 * 1000) return false;
+  const expected = crypto
+    .createHmac("sha256", apiKey)
+    .update(Buffer.concat([Buffer.from(`${timestamp}.`), rawBody || Buffer.alloc(0)]))
+    .digest("hex");
+  return safeEqual(headers["x-rankhouse-signature"] || "", expected);
+}
+```
+
+```python Python
+import hashlib
+import hmac
+import time
+
+
+def is_from_rankhouse(headers, raw_body: bytes, api_key: str) -> bool:
+    timestamp = headers.get("x-rankhouse-timestamp", "")
+    if not hmac.compare_digest(headers.get("x-api-key", ""), api_key):
+        return False
+    if not timestamp.isdigit() or abs(time.time() * 1000 - int(timestamp)) > 5 * 60 * 1000:
+        return False
+    expected = hmac.new(api_key.encode(), timestamp.encode() + b"." + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(headers.get("x-rankhouse-signature", ""), expected)
+```
+
+```php PHP
+<?php
+function is_from_rankhouse(string $rawBody, string $apiKey): bool
+{
+    $timestamp = $_SERVER['HTTP_X_RANKHOUSE_TIMESTAMP'] ?? '';
+    if (!hash_equals($apiKey, $_SERVER['HTTP_X_API_KEY'] ?? '')) {
+        return false;
+    }
+    if (!ctype_digit($timestamp) || abs(microtime(true) * 1000 - (float) $timestamp) > 300000) {
+        return false;
+    }
+    $expected = hash_hmac('sha256', $timestamp . '.' . $rawBody, $apiKey);
+    return hash_equals($expected, $_SERVER['HTTP_X_RANKHOUSE_SIGNATURE'] ?? '');
+}
+
+// $rawBody = file_get_contents('php://input');
+```
+
+</CodeGroup>
+
+The [sample receivers](/samples/node) run exactly these checks. They're tested against the code RankHouse uses to sign requests.
+
+## The handshake challenge
+
+When the site owner presses **Connect website** or **Re-verify**, RankHouse sends `{ "challenge": "<64 hex characters>" }` to `POST /handshake`. Your reply includes `challenge_response`: the HMAC-SHA256 of the challenge, made with your key, as lowercase hex. A matching reply proves your server holds the same key. See [Handshake](/endpoints/handshake).
+
+## Keeping the key safe
+
+- Keep the key on the server: in an environment variable or a secret store, never in page code, a public repository or a file inside your web root.
+- Serve your endpoints over HTTPS, so the key and content can't be read on the way.
+- The key belongs to one website. Use a different RankHouse account for a different site.
+
+## Changing or removing the key
+
+The site owner manages the key on the **Custom Website** card in RankHouse.
+
+| Action | What happens |
+| --- | --- |
+| **Regenerate** | A new key replaces the old one straight away, and the connection is marked disconnected. Put the new key on your server, then press **Connect website**. |
+| **Disconnect** | The key is revoked and the connection closes. Nothing more is sent. To connect again, press **Generate key**, put the new key on your server and press **Connect website**. |
+
+A request signed with an old key fails your checks, so your code refuses it on its own.

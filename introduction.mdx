@@ -1,0 +1,56 @@
+---
+title: "Introduction"
+description: "Connect any website to RankHouse. Your developer adds a few HTTPS endpoints once, then posts and SEO updates arrive as signed requests."
+icon: book-open
+---
+
+RankHouse writes blog posts and better page titles and descriptions for a website. On WordPress, Shopify and Webflow it connects without any code. For every other site (Laravel, Django, Rails, Next.js, a headless CMS or a CMS you built yourself) there is the **publishing API**.
+
+You add a few HTTPS endpoints to your site. When the site owner publishes in RankHouse, our servers send a signed request to those endpoints, and your code saves the content wherever your site reads it from.
+
+```text
+Site owner presses Publish in RankHouse
+          │
+          ▼
+RankHouse servers ── signed HTTPS request ──▶ https://your-site.com/rankhouse/posts
+                                              (your code, your database)
+```
+
+You never call RankHouse and you never poll. RankHouse calls you.
+
+## What you build
+
+Three endpoints are required. The rest each switch on one feature, so you can start small and add more later.
+
+| Endpoint | Needed to connect | What it gives the site owner |
+| --- | --- | --- |
+| [`POST /handshake`](/endpoints/handshake) | Yes | The connection itself |
+| [`POST /posts`](/endpoints/create-post) | Yes | New blog posts on your site |
+| [`PUT /posts/{id}`](/endpoints/update-post) | Yes | Changes to posts RankHouse already sent |
+| [`PUT /seo`](/endpoints/seo) | No | New titles and descriptions on pages you already have |
+| [`GET /pages`](/endpoints/pages) | No | Your page ids matched to the pages RankHouse found on your site |
+| [`GET /blog-categories`, `GET /authors`](/endpoints/categories-and-authors) | No | Your own categories and authors in the RankHouse editor |
+
+All of them sit under one base URL that you choose, such as `https://your-site.com/rankhouse`.
+
+## What RankHouse can and can't do
+
+- It calls only the endpoints your site lists in its handshake, and your code decides what to save.
+- It has no login to your server, database or hosting. It knows one address and one key.
+- It adds no scripts to your pages.
+- It signs every request with your key, so your code can refuse anything that didn't come from RankHouse. See [Authentication](/authentication).
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run a sample receiver, connect it and publish a test post.
+  </Card>
+  <Card title="Authentication" icon="lock" href="/authentication">
+    The key, the signature and the timestamp on every request.
+  </Card>
+  <Card title="Capabilities" icon="toggle-on" href="/capabilities">
+    Tell RankHouse which optional endpoints you built.
+  </Card>
+  <Card title="Sample receivers" icon="code" href="/samples/node">
+    Working servers in Node.js, Python and PHP.
+  </Card>
+</CardGroup>

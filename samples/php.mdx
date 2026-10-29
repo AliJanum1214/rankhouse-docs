@@ -1,0 +1,218 @@
+---
+title: "PHP"
+description: "A complete receiver in one plain PHP file, with no framework. It runs as-is, then you swap the JSON file for your database."
+icon: php
+---
+
+This script answers the handshake, checks the key and signature on every request, and implements every endpoint RankHouse uses: posts, SEO updates, the page list, categories and authors. Posts are kept in a JSON file next to the script, so you can run it before touching your real database.
+
+<Steps>
+  <Step title="Run it locally">
+    Needs PHP 7.4 or newer.
+
+    ```bash
+    RANKHOUSE_API_KEY=your-64-character-key php -S localhost:4000 index.php
+    ```
+
+    On Windows PowerShell, set the key first with `$env:RANKHOUSE_API_KEY="your-64-character-key"`, then run `php -S localhost:4000 index.php`.
+  </Step>
+  <Step title="Or put it on your server">
+    Create a `rankhouse` folder in your web root, put `index.php` in it, and send every request in that folder to the script. On Apache, add this `.htaccess` next to it:
+
+    ```apache .htaccess
+    RewriteEngine On
+    RewriteRule ^ index.php [L]
+    ```
+
+    Set `RANKHOUSE_API_KEY` in your server's environment (for example `SetEnv` in the virtual host, or your host's control panel). Your base URL is then `https://your-site.com/rankhouse`.
+  </Step>
+</Steps>
+
+```php index.php
+<?php
+// A complete RankHouse receiver in one file (PHP 7.4+, no framework).
+// Run: RANKHOUSE_API_KEY=your-key php -S localhost:4000 index.php
+// Base URL to paste in RankHouse: http://localhost:4000/rankhouse
+
+$apiKey = getenv('RANKHOUSE_API_KEY') ?: '';
+// The address your public pages live on, used for page URLs in GET /pages.
+$siteUrl = getenv('SITE_URL') ?: 'http://localhost:4000';
+const MAX_AGE_MS = 300000; // refuse requests signed more than 5 minutes ago
+// Data file so the sample runs as-is. Replace with your database.
+const STORE_FILE = __DIR__ . '/rankhouse-store.json';
+
+function reply(int $status, $data): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}
+
+function sign(string $message, string $key): string
+{
+    return hash_hmac('sha256', $message, $key);
+}
+
+// Every request: right key, recent timestamp, valid signature.
+$rawBody = file_get_contents('php://input'); // the exact bytes sent; GET requests have none
+$timestamp = $_SERVER['HTTP_X_RANKHOUSE_TIMESTAMP'] ?? '';
+$signature = $_SERVER['HTTP_X_RANKHOUSE_SIGNATURE'] ?? '';
+if ($apiKey === '' || !hash_equals($apiKey, $_SERVER['HTTP_X_API_KEY'] ?? '')) {
+    reply(401, ['error' => 'Invalid API key']);
+}
+if (!ctype_digit($timestamp) || abs(microtime(true) * 1000 - (float) $timestamp) > MAX_AGE_MS) {
+    reply(401, ['error' => 'Request expired']);
+}
+if (!hash_equals(sign($timestamp . '.' . $rawBody, $apiKey), $signature)) {
+    reply(401, ['error' => 'Invalid signature']);
+}
+
+$body = json_decode($rawBody ?: '{}', true) ?: [];
+$method = $_SERVER['REQUEST_METHOD'];
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if (!preg_match('#/rankhouse(/.*)?$#', $path, $match)) {
+    reply(404, ['error' => 'Not found']);
+}
+$route = rtrim($match[1] ?? '', '/') ?: '/';
+
+$store = is_file(STORE_FILE)
+    ? json_decode(file_get_contents(STORE_FILE), true)
+    : ['next_id' => 1, 'posts' => []];
+$categories = [
+    ['id' => '1', 'name' => 'News', 'slug' => 'news'],
+    ['id' => '2', 'name' => 'Guides', 'slug' => 'guides'],
+];
+$authors = [['id' => '1', 'name' => 'Jane Doe', 'display_name' => 'Jane Doe']];
+
+const POST_FIELDS = [
+    'title', 'content', 'excerpt', 'status', 'categories', 'tags', 'author',
+    'featured_image', 'seo', 'date', 'reading_time', 'language',
+];
+
+function pick_post_fields(array $body): array
+{
+    return array_intersect_key($body, array_flip(POST_FIELDS));
+}
+
+function slugify($text): string
+{
+    $slug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $text)), '-');
+    return $slug !== '' ? $slug : 'post';
+}
+
+function last_path_segment($url): ?string
+{
+    $parts = array_values(array_filter(explode('/', preg_split('/[?#]/', (string) $url)[0])));
+    return $parts ? end($parts) : null;
+}
+
+function paginate(array $items): array
+{
+    $perPage = min(max((int) ($_GET['per_page'] ?? 100), 1), 100);
+    $page = max((int) ($_GET['page'] ?? 1), 1);
+    return array_slice(array_values($items), ($page - 1) * $perPage, $perPage);
+}
+
+function save_store(array $store): void
+{
+    file_put_contents(STORE_FILE, json_encode($store), LOCK_EX);
+}
+
+if ($method === 'POST' && $route === '/handshake') {
+    reply(200, [
+        'name' => 'My website',
+        'version' => '1.0.0',
+        'capabilities' => ['posts.create', 'posts.update', 'seo', 'pages.list', 'blog_categories', 'authors'],
+        'challenge_response' => sign((string) ($body['challenge'] ?? ''), $apiKey),
+    ]);
+}
+
+if ($method === 'POST' && $route === '/posts') {
+    if (empty($body['title']) || empty($body['content'])) {
+        reply(422, ['error' => 'title and content are required']);
+    }
+    // RankHouse can send the same post twice. Update the copy you already have.
+    $sourceId = $body['source_id'] ?? null;
+    foreach ($store['posts'] as $id => $post) {
+        if ($sourceId && ($post['source_id'] ?? null) === $sourceId) {
+            $store['posts'][$id] = array_merge($post, pick_post_fields($body));
+            save_store($store);
+            reply(200, ['id' => (string) $id]);
+        }
+    }
+    $id = (string) $store['next_id']++;
+    $store['posts'][$id] = array_merge(
+        ['id' => $id, 'source_id' => $sourceId, 'slug' => slugify($body['title'])],
+        pick_post_fields($body)
+    );
+    save_store($store);
+    reply(201, ['id' => $id]);
+}
+
+if ($method === 'PUT' && preg_match('#^/posts/([^/]+)$#', $route, $m)) {
+    $id = urldecode($m[1]);
+    if (!isset($store['posts'][$id])) {
+        reply(404, ['error' => 'Post not found']);
+    }
+    // Change only the fields that arrived.
+    $store['posts'][$id] = array_merge($store['posts'][$id], pick_post_fields($body));
+    save_store($store);
+    reply(200, ['id' => $id]);
+}
+
+if ($method === 'PUT' && $route === '/seo') {
+    // Your stored id first, then the slug, then the last part of the URL.
+    // A real site looks up any page here, not only posts RankHouse sent.
+    $id = isset($body['id']) ? (string) $body['id'] : null;
+    if ($id === null || !isset($store['posts'][$id])) {
+        $wanted = $body['slug'] ?? last_path_segment($body['url'] ?? '');
+        $id = null;
+        foreach ($store['posts'] as $postId => $post) {
+            if ($post['slug'] === $wanted) {
+                $id = (string) $postId;
+                break;
+            }
+        }
+    }
+    if ($id === null) {
+        reply(404, ['error' => 'Page not found']);
+    }
+    $store['posts'][$id]['seo'] = array_merge($store['posts'][$id]['seo'] ?? [], $body['seo'] ?? []);
+    save_store($store);
+    reply(200, ['id' => $id]);
+}
+
+if ($method === 'GET' && $route === '/pages') {
+    $published = [];
+    foreach ($store['posts'] as $post) {
+        if (($post['status'] ?? '') === 'publish') {
+            $published[] = [
+                'id' => (string) $post['id'],
+                'url' => $siteUrl . '/blog/' . $post['slug'],
+                'slug' => $post['slug'],
+                'title' => $post['title'],
+                'type' => 'post',
+            ];
+        }
+    }
+    reply(200, paginate($published));
+}
+
+if ($method === 'GET' && $route === '/blog-categories') {
+    reply(200, paginate($categories));
+}
+
+if ($method === 'GET' && $route === '/authors') {
+    reply(200, paginate($authors));
+}
+
+reply(404, ['error' => 'Not found']);
+```
+
+## Moving to your database
+
+- Replace the JSON file with your posts table. Keep a `source_id` column with a unique index, so a post sent twice updates the first copy.
+- Point `/blog-categories` and `/authors` at the lists your site already has.
+- Store the key the way you store a database password: in the server environment, never in page code or in a file inside the web root.
+- Serve the live version over HTTPS.

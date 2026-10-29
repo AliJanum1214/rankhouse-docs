@@ -1,0 +1,174 @@
+---
+title: "Node.js (Express)"
+description: "A complete receiver in one file. It runs as-is, then you swap the in-memory store for your database."
+icon: node-js
+---
+
+This server answers the handshake, checks the key and signature on every request, and implements every endpoint RankHouse uses: posts, SEO updates, the page list, categories and authors. Posts live in memory, so you can run it before touching your real database.
+
+<Steps>
+  <Step title="Install and run">
+    Needs Node.js 18 or newer.
+
+    ```bash
+    npm install express
+    RANKHOUSE_API_KEY=your-64-character-key node server.js
+    ```
+
+    On Windows PowerShell, set the key first with `$env:RANKHOUSE_API_KEY="your-64-character-key"`, then run `node server.js`.
+  </Step>
+  <Step title="Connect it">
+    RankHouse has to reach the server from the internet, so put it on an HTTPS address on your own domain, then paste that address followed by `/rankhouse` into **API base URL**. The [Quickstart](/quickstart) explains why the domain matters.
+  </Step>
+</Steps>
+
+```javascript server.js
+// A complete RankHouse receiver in one file (Node.js 18+, Express 4 or 5).
+// Run: RANKHOUSE_API_KEY=your-key node server.js
+// Base URL to paste in RankHouse: http://localhost:4000/rankhouse
+const crypto = require("crypto");
+const express = require("express");
+
+const API_KEY = process.env.RANKHOUSE_API_KEY;
+const PORT = Number(process.env.PORT) || 4000;
+// The address your public pages live on, used for page URLs in GET /pages.
+const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
+const MAX_AGE_MS = 5 * 60 * 1000; // refuse requests signed more than 5 minutes ago
+
+if (!API_KEY) {
+  console.error("Set RANKHOUSE_API_KEY to the key from RankHouse.");
+  process.exit(1);
+}
+
+// In-memory data so the sample runs as-is. Replace with your database.
+const posts = new Map(); // id -> post
+let nextId = 1;
+const categories = [
+  { id: "1", name: "News", slug: "news" },
+  { id: "2", name: "Guides", slug: "guides" },
+];
+const authors = [{ id: "1", name: "Jane Doe", display_name: "Jane Doe" }];
+
+const POST_FIELDS = [
+  "title", "content", "excerpt", "status", "categories", "tags", "author",
+  "featured_image", "seo", "date", "reading_time", "language",
+];
+
+const router = express.Router();
+
+// Keep the exact bytes RankHouse sent. The signature covers them, not the parsed JSON.
+router.use(express.json({ limit: "5mb", verify: (req, _res, buf) => { req.rawBody = buf; } }));
+
+function safeEqual(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+function sign(message) {
+  return crypto.createHmac("sha256", API_KEY).update(message).digest("hex");
+}
+
+// Every request: right key, recent timestamp, valid signature.
+router.use((req, res, next) => {
+  const timestamp = req.get("X-RankHouse-Timestamp") || "";
+  const signature = req.get("X-RankHouse-Signature") || "";
+  if (!safeEqual(req.get("X-API-Key") || "", API_KEY)) {
+    return res.status(401).json({ error: "Invalid API key" });
+  }
+  if (!/^\d+$/.test(timestamp) || Math.abs(Date.now() - Number(timestamp)) > MAX_AGE_MS) {
+    return res.status(401).json({ error: "Request expired" });
+  }
+  const rawBody = req.rawBody || Buffer.alloc(0); // GET requests have no body
+  const expected = sign(Buffer.concat([Buffer.from(`${timestamp}.`), rawBody]));
+  if (!safeEqual(signature, expected)) {
+    return res.status(401).json({ error: "Invalid signature" });
+  }
+  next();
+});
+
+function pickPostFields(body) {
+  const out = {};
+  for (const key of POST_FIELDS) if (body[key] !== undefined) out[key] = body[key];
+  return out;
+}
+
+function slugify(text) {
+  const slug = String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug || "post";
+}
+
+function lastPathSegment(url) {
+  return String(url || "").split(/[?#]/)[0].split("/").filter(Boolean).pop() || null;
+}
+
+function paginate(list, query) {
+  const perPage = Math.min(Math.max(Number(query.per_page) || 100, 1), 100);
+  const page = Math.max(Number(query.page) || 1, 1);
+  return list.slice((page - 1) * perPage, page * perPage);
+}
+
+router.post("/handshake", (req, res) => {
+  res.json({
+    name: "My website",
+    version: "1.0.0",
+    capabilities: ["posts.create", "posts.update", "seo", "pages.list", "blog_categories", "authors"],
+    challenge_response: sign(String(req.body.challenge || "")),
+  });
+});
+
+router.post("/posts", (req, res) => {
+  const body = req.body || {};
+  if (!body.title || !body.content) {
+    return res.status(422).json({ error: "title and content are required" });
+  }
+  // RankHouse can send the same post twice. Update the copy you already have.
+  const existing = [...posts.values()].find((p) => body.source_id && p.source_id === body.source_id);
+  if (existing) {
+    Object.assign(existing, pickPostFields(body));
+    return res.status(200).json({ id: existing.id });
+  }
+  const id = String(nextId++);
+  posts.set(id, { id, source_id: body.source_id, slug: slugify(body.title), ...pickPostFields(body) });
+  res.status(201).json({ id });
+});
+
+router.put("/posts/:id", (req, res) => {
+  const post = posts.get(req.params.id);
+  if (!post) return res.status(404).json({ error: "Post not found" });
+  Object.assign(post, pickPostFields(req.body || {})); // change only the fields that arrived
+  res.json({ id: post.id });
+});
+
+router.put("/seo", (req, res) => {
+  const { id, url, slug, seo } = req.body || {};
+  // Your stored id first, then the slug, then the last part of the URL.
+  // A real site looks up any page here, not only posts RankHouse sent.
+  const wanted = slug || lastPathSegment(url);
+  const post = (id && posts.get(String(id))) || [...posts.values()].find((p) => p.slug === wanted);
+  if (!post) return res.status(404).json({ error: "Page not found" });
+  post.seo = { ...post.seo, ...seo };
+  res.json({ id: post.id });
+});
+
+router.get("/pages", (req, res) => {
+  const published = [...posts.values()]
+    .filter((p) => p.status === "publish")
+    .map((p) => ({ id: p.id, url: `${SITE_URL}/blog/${p.slug}`, slug: p.slug, title: p.title, type: "post" }));
+  res.json(paginate(published, req.query));
+});
+
+router.get("/blog-categories", (req, res) => res.json(paginate(categories, req.query)));
+router.get("/authors", (req, res) => res.json(paginate(authors, req.query)));
+
+const app = express();
+app.use("/rankhouse", router);
+app.listen(PORT, () => console.log(`RankHouse receiver on http://localhost:${PORT}/rankhouse`));
+```
+
+## Moving to your database
+
+- Replace the `posts` map with your posts table. Keep a `source_id` column with a unique index, so a post sent twice updates the first copy.
+- Point `/blog-categories` and `/authors` at the lists your site already has.
+- Store the key the way you store a database password: in an environment variable or secret store on the server, never in page code.
+- Serve the live version over HTTPS.

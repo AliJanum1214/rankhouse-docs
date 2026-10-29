@@ -1,33 +1,23 @@
-> **First-time setup**: Customize this file for your project. Prompt the user to customize this file for their project.
-> For Mintlify product knowledge (components, configuration, writing standards),
-> install the Mintlify skill: `npx skills add https://mintlify.com/docs`
-
 # Documentation project instructions
 
 ## About this project
 
-- This is a documentation site built on [Mintlify](https://mintlify.com)
-- Pages are MDX files with YAML frontmatter
-- Configuration lives in `docs.json`
-- Use the Mintlify MCP server, `https://mcp.mintlify.com`, to edit content and settings via MCP
-- Use the Mintlify docs MCP server, `https://www.mintlify.com/docs/mcp`, to query information about using Mintlify via MCP
+- Public developer docs for the RankHouse publishing API (custom websites), built on [Mintlify](https://mintlify.com).
+- Pages are MDX files with YAML frontmatter. Configuration lives in `docs.json`.
+- Readers are developers at customer companies who build the endpoints on their own site.
 
-## Terminology
+## Rules
 
-{/* Add product-specific terms and preferred usage */}
-{/* Example: Use "workspace" not "project", "member" not "user" */}
+- Document only what the RankHouse server does today. Check every claim against the files listed in `README.md` before writing it.
+- The signature headers are `X-RankHouse-Timestamp` and `X-RankHouse-Signature`. Never print any other header names for them.
+- Don't document endpoints the product doesn't call: post deletion, products and product categories stay out until the product uses them.
+- After changing a sample in `samples/`, run `node tests/check-samples.cjs` (see `README.md`).
+- Support address: support@rankhouse.ai.
 
-## Style preferences
+## Style
 
-{/* Add any project-specific style rules below */}
-
-- Use active voice and second person ("you")
-- Keep sentences concise — one idea per sentence
-- Use sentence case for headings
-- Bold for UI elements: Click **Settings**
-- Code formatting for file names, commands, paths, and code references
-
-## Content boundaries
-
-{/* Define what should and shouldn't be documented */}
-{/* Example: Don't document internal admin features */}
+- Plain English, short sentences, second person ("you").
+- Sentence case for headings.
+- Bold for UI labels, exactly as the app shows them: **Generate key**, **Connect website**, **Re-verify**, **Sync pages**.
+- Code formatting for endpoints, fields, headers and file names.
+- No em dashes.

@@ -5,3 +5,7 @@
 # Draft content
 drafts/
 *.draft.mdx
+
+# Sample test script, not a page
+tests/
+AGENTS.md

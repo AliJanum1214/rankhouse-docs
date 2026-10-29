@@ -1,0 +1,189 @@
+---
+title: "Python (FastAPI)"
+description: "A complete receiver in one file. It runs as-is, then you swap the in-memory store for your database."
+icon: python
+---
+
+This app answers the handshake, checks the key and signature on every request, and implements every endpoint RankHouse uses: posts, SEO updates, the page list, categories and authors. Posts live in memory, so you can run it before touching your real database.
+
+<Steps>
+  <Step title="Install and run">
+    Needs Python 3.9 or newer.
+
+    ```bash
+    pip install fastapi uvicorn
+    RANKHOUSE_API_KEY=your-64-character-key uvicorn main:app --port 4000
+    ```
+
+    On Windows PowerShell, set the key first with `$env:RANKHOUSE_API_KEY="your-64-character-key"`, then run `uvicorn main:app --port 4000`.
+  </Step>
+  <Step title="Connect it">
+    RankHouse has to reach the app from the internet, so put it on an HTTPS address on your own domain, then paste that address followed by `/rankhouse` into **API base URL**. The [Quickstart](/quickstart) explains why the domain matters.
+  </Step>
+</Steps>
+
+```python main.py
+# A complete RankHouse receiver in one file (Python 3.9+, FastAPI).
+# Run: RANKHOUSE_API_KEY=your-key uvicorn main:app --port 4000
+# Base URL to paste in RankHouse: http://localhost:4000/rankhouse
+import hashlib
+import hmac
+import itertools
+import os
+import re
+import time
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+
+API_KEY = os.environ.get("RANKHOUSE_API_KEY", "")
+# The address your public pages live on, used for page URLs in GET /pages.
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:4000")
+MAX_AGE_MS = 5 * 60 * 1000  # refuse requests signed more than 5 minutes ago
+
+if not API_KEY:
+    raise SystemExit("Set RANKHOUSE_API_KEY to the key from RankHouse.")
+
+# In-memory data so the sample runs as-is. Replace with your database.
+posts = {}  # id -> post
+new_ids = itertools.count(1)
+categories = [
+    {"id": "1", "name": "News", "slug": "news"},
+    {"id": "2", "name": "Guides", "slug": "guides"},
+]
+authors = [{"id": "1", "name": "Jane Doe", "display_name": "Jane Doe"}]
+
+POST_FIELDS = (
+    "title", "content", "excerpt", "status", "categories", "tags", "author",
+    "featured_image", "seo", "date", "reading_time", "language",
+)
+
+
+def sign(message: bytes) -> str:
+    return hmac.new(API_KEY.encode(), message, hashlib.sha256).hexdigest()
+
+
+async def verify_rankhouse(request: Request) -> None:
+    """Every request: right key, recent timestamp, valid signature."""
+    raw_body = await request.body()  # the exact bytes sent; GET requests have none
+    timestamp = request.headers.get("x-rankhouse-timestamp", "")
+    signature = request.headers.get("x-rankhouse-signature", "")
+    if not hmac.compare_digest(request.headers.get("x-api-key", ""), API_KEY):
+        raise HTTPException(401, "Invalid API key")
+    if not timestamp.isdigit() or abs(time.time() * 1000 - int(timestamp)) > MAX_AGE_MS:
+        raise HTTPException(401, "Request expired")
+    if not hmac.compare_digest(signature, sign(timestamp.encode() + b"." + raw_body)):
+        raise HTTPException(401, "Invalid signature")
+
+
+app = FastAPI()
+router = APIRouter(prefix="/rankhouse", dependencies=[Depends(verify_rankhouse)])
+
+
+@app.exception_handler(HTTPException)
+async def error_body(_request: Request, exc: HTTPException):
+    # RankHouse reads errors from an "error" field.
+    return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
+
+
+def pick_post_fields(body: dict) -> dict:
+    return {key: body[key] for key in POST_FIELDS if key in body}
+
+
+def slugify(text) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(text or "").lower()).strip("-") or "post"
+
+
+def last_path_segment(url):
+    parts = [p for p in re.split(r"[?#]", str(url or ""))[0].split("/") if p]
+    return parts[-1] if parts else None
+
+
+def paginate(items: list, request: Request) -> list:
+    per_page = min(max(int(request.query_params.get("per_page") or 100), 1), 100)
+    page = max(int(request.query_params.get("page") or 1), 1)
+    return items[(page - 1) * per_page : page * per_page]
+
+
+@router.post("/handshake")
+async def handshake(request: Request):
+    body = await request.json()
+    return {
+        "name": "My website",
+        "version": "1.0.0",
+        "capabilities": ["posts.create", "posts.update", "seo", "pages.list", "blog_categories", "authors"],
+        "challenge_response": sign(str(body.get("challenge", "")).encode()),
+    }
+
+
+@router.post("/posts")
+async def create_post(request: Request):
+    body = await request.json()
+    if not body.get("title") or not body.get("content"):
+        raise HTTPException(422, "title and content are required")
+    # RankHouse can send the same post twice. Update the copy you already have.
+    source_id = body.get("source_id")
+    existing = next((p for p in posts.values() if source_id and p.get("source_id") == source_id), None)
+    if existing:
+        existing.update(pick_post_fields(body))
+        return {"id": existing["id"]}
+    post_id = str(next(new_ids))
+    posts[post_id] = {"id": post_id, "source_id": source_id, "slug": slugify(body["title"]), **pick_post_fields(body)}
+    return JSONResponse({"id": post_id}, status_code=201)
+
+
+@router.put("/posts/{post_id}")
+async def update_post(post_id: str, request: Request):
+    post = posts.get(post_id)
+    if not post:
+        raise HTTPException(404, "Post not found")
+    post.update(pick_post_fields(await request.json()))  # change only the fields that arrived
+    return {"id": post_id}
+
+
+@router.put("/seo")
+async def update_seo(request: Request):
+    body = await request.json()
+    # Your stored id first, then the slug, then the last part of the URL.
+    # A real site looks up any page here, not only posts RankHouse sent.
+    wanted = body.get("slug") or last_path_segment(body.get("url"))
+    post = posts.get(str(body.get("id"))) or next((p for p in posts.values() if p["slug"] == wanted), None)
+    if not post:
+        raise HTTPException(404, "Page not found")
+    post["seo"] = {**(post.get("seo") or {}), **(body.get("seo") or {})}
+    return {"id": post["id"]}
+
+
+@router.get("/pages")
+async def list_pages(request: Request):
+    published = [
+        {"id": p["id"], "url": f"{SITE_URL}/blog/{p['slug']}", "slug": p["slug"], "title": p["title"], "type": "post"}
+        for p in posts.values()
+        if p.get("status") == "publish"
+    ]
+    return paginate(published, request)
+
+
+@router.get("/blog-categories")
+async def list_categories(request: Request):
+    return paginate(categories, request)
+
+
+@router.get("/authors")
+async def list_authors(request: Request):
+    return paginate(authors, request)
+
+
+app.include_router(router)
+```
+
+## Moving to your database
+
+- Replace the `posts` dict with your posts table. Keep a `source_id` column with a unique index, so a post sent twice updates the first copy.
+- Point `/blog-categories` and `/authors` at the lists your site already has.
+- Store the key the way you store a database password: in an environment variable or secret store on the server, never in page code.
+- Serve the live version over HTTPS.
+
+<Note>
+The signature check reads the raw body with `await request.body()` before anything parses it. If you move the check into middleware or another framework, keep it on the raw bytes: re-serialising the parsed JSON changes spacing and key order, and the signature no longer matches.
+</Note>

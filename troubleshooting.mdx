@@ -1,0 +1,83 @@
+---
+title: "Troubleshooting"
+description: "What the connection errors mean and how to fix them."
+icon: life-ring
+---
+
+## Connecting
+
+When **Connect website** or **Re-verify** fails, the Custom Website card shows one of these messages.
+
+<AccordionGroup>
+  <Accordion title="Could not reach https://…/handshake">
+    RankHouse's servers couldn't open your address. Check that:
+
+    - the base URL is right, including the path (for example `/rankhouse`), with no `/handshake` on the end,
+    - the server is running and reachable from the internet, not only from your network,
+    - the HTTPS certificate is valid,
+    - no firewall, bot protection or login page sits in front of the endpoints.
+  </Accordion>
+
+  <Accordion title="Handshake failed with status 401 (or your own error message)">
+    Your server answered with an error, usually from its own key or signature check.
+
+    - **Wrong key.** The key on your server must match the one on the Custom Website card. After **Regenerate**, the old key stops working.
+    - **Signature over the wrong bytes.** Sign the raw body exactly as it arrived, not JSON you parsed and serialised again. See [Authentication](/authentication).
+    - **Wrong header names.** Read `X-RankHouse-Timestamp` and `X-RankHouse-Signature`.
+    - **Clock.** If you refuse old timestamps, your server's clock must be right. Turn on NTP.
+
+    When your handshake answers with `{ "error": "..." }`, that message is shown on the card.
+  </Accordion>
+
+  <Accordion title="Handshake signature verification failed: the receiver did not sign the challenge with this brand's API key.">
+    Your server answered, but `challenge_response` was wrong. It must be `HMAC-SHA256(key, challenge)` as **lowercase hex**, over the `challenge` string alone, made with the same key. See [Handshake](/endpoints/handshake).
+  </Accordion>
+
+  <Accordion title="The receiver must implement the required endpoints and declare: posts.create, posts.update">
+    Your `capabilities` list is missing one or both required names. Add them, exactly as written. See [Capabilities](/capabilities).
+  </Accordion>
+
+  <Accordion title="No active custom-platform API key for this brand. Generate one first.">
+    There's no key yet, or it was revoked with **Disconnect**. Press **Generate key**, put the new key on your server, then connect.
+  </Accordion>
+
+  <Accordion title="base_url must be an absolute http(s) URL">
+    Paste the full address, starting with `https://`.
+  </Accordion>
+
+  <Accordion title="It's already connected to the site https://…">
+    The key is tied to the domain it first connected to, and the new address is on a different domain. Use an address on that domain (any subdomain works). To move the connection to another domain, email [support@rankhouse.ai](mailto:support@rankhouse.ai).
+  </Accordion>
+</AccordionGroup>
+
+## Publishing
+
+<AccordionGroup>
+  <Accordion title="The post was saved on my site but RankHouse says it wasn't published">
+    Your `POST /posts` reply must include the post's `id`, for example `{ "id": "1042" }`, with a `2xx` status. A reply without an id counts as a failed delivery.
+  </Accordion>
+
+  <Accordion title="Some posts fail the signature check, most don't">
+    Long posts can go over your server's request size limit, and the body is cut before your check runs. Raise the limit for these endpoints: Express allows 100 KB by default (`express.json({ limit: "5mb" })`), and nginx 1 MB (`client_max_body_size`).
+  </Accordion>
+
+  <Accordion title="The same post appears twice">
+    RankHouse can send a post again. Save `source_id` with each post and, when it arrives again, update the post you have instead of making a new one.
+  </Accordion>
+
+  <Accordion title="Posts arrive but don't show on the site">
+    Check `status`. A post sent as `draft` is meant to stay off the live site until someone publishes it there. Which status RankHouse sends depends on the publishing mode the site owner picked on the Custom Website card.
+  </Accordion>
+
+  <Accordion title="Categories or authors don't show in the editor">
+    List `blog_categories` or `authors` in your handshake, then press **Re-verify**. Check the result under **Supported features**.
+  </Accordion>
+
+  <Accordion title="New titles and descriptions don't reach my pages">
+    You need the `seo` capability and a working [`PUT /seo`](/endpoints/seo). If your endpoint can't find pages, add [`GET /pages`](/endpoints/pages) so RankHouse can name each page by your id, then press **Sync pages**.
+  </Accordion>
+</AccordionGroup>
+
+## Still stuck?
+
+Email [support@rankhouse.ai](mailto:support@rankhouse.ai) with your site's address and the message you see. We work with your developer until the site is connected.

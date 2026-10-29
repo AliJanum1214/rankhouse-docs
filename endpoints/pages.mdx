@@ -1,0 +1,99 @@
+---
+title: "Page list"
+description: "GET /pages. Your published pages with their ids, so RankHouse can name them by your id. Optional, capability pages.list."
+icon: list
+---
+
+```http
+GET {base_url}/pages?per_page=100&page=1
+```
+
+RankHouse reads your site's pages by crawling it, but a crawl doesn't know your ids. This endpoint fills the gap: RankHouse matches each page you list to a page it found, first by URL and then by slug, and saves your id with it. Later [SEO updates](/endpoints/seo) then name the page by your id.
+
+RankHouse reads the list:
+
+- right after the site connects, and after each **Re-verify**,
+- when the site owner presses **Sync pages** on the Custom Website card.
+
+## Request
+
+<ParamField query="per_page" type="number" default="100">
+  How many pages to return.
+</ParamField>
+
+<ParamField query="page" type="number" default="1">
+  Which page of results, starting at 1.
+</ParamField>
+
+RankHouse asks for page 1, 2, 3 and so on, and stops at the first reply with fewer than `per_page` items.
+
+## Response
+
+A JSON array of your **published** pages. An object with the array in `items` works too, if you want to add paging details.
+
+<ResponseField name="id" type="string" required>
+  Your id for the page.
+</ResponseField>
+
+<ResponseField name="url" type="string" required>
+  The page's full public URL.
+</ResponseField>
+
+<ResponseField name="slug" type="string">
+  The last part of the URL. Worked out from `url` if you leave it out.
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  The page title.
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  What kind of page it is: `post`, `category`, `product` or `product_category`. Use `page`, or leave it out, for any other page.
+</ResponseField>
+
+```json
+[
+  { "id": "17", "url": "https://your-site.com/blog/sizing-guide", "slug": "sizing-guide", "title": "Sizing guide", "type": "post" },
+  { "id": "8842", "url": "https://your-site.com/shoes/trail-runner-x", "slug": "trail-runner-x", "title": "Trail Runner X", "type": "product" },
+  { "id": "3", "url": "https://your-site.com/about", "slug": "about", "title": "About us", "type": "page" }
+]
+```
+
+List only pages that are live. Leave out drafts and anything visitors can't open.
+
+## Example
+
+<CodeGroup>
+
+```javascript Node.js
+router.get("/pages", async (req, res) => {
+  const perPage = Math.min(Number(req.query.per_page) || 100, 100);
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const rows = await db.pages.listPublished({ limit: perPage, offset: (page - 1) * perPage });
+  res.json(rows.map((p) => ({ id: String(p.id), url: p.url, slug: p.slug, title: p.title, type: p.type })));
+});
+```
+
+```python Python
+@router.get("/pages")
+async def list_pages(per_page: int = 100, page: int = 1):
+    per_page = min(per_page, 100)
+    rows = db.pages.list_published(limit=per_page, offset=(max(page, 1) - 1) * per_page)
+    return [{"id": str(p.id), "url": p.url, "slug": p.slug, "title": p.title, "type": p.type} for p in rows]
+```
+
+```php PHP
+<?php
+$perPage = min(max((int) ($_GET['per_page'] ?? 100), 1), 100);
+$page = max((int) ($_GET['page'] ?? 1), 1);
+$rows = $db->listPublishedPages($perPage, ($page - 1) * $perPage);
+reply(200, array_map(fn ($p) => [
+    'id' => (string) $p['id'],
+    'url' => $p['url'],
+    'slug' => $p['slug'],
+    'title' => $p['title'],
+    'type' => $p['type'],
+], $rows));
+```
+
+</CodeGroup>

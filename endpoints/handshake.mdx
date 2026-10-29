@@ -1,0 +1,98 @@
+---
+title: "Handshake"
+description: "POST /handshake. Proves your server holds the key and tells RankHouse what it supports. Required."
+icon: handshake
+---
+
+```http
+POST {base_url}/handshake
+```
+
+RankHouse calls this when the site owner presses **Connect website** or **Re-verify**. It's signed like every other request, so check the headers first ([Authentication](/authentication)).
+
+## Request
+
+<ParamField body="challenge" type="string" required>
+  64 random hex characters, new each time.
+</ParamField>
+
+```json
+{ "challenge": "9f1c2e7a0b4d...e83a" }
+```
+
+## Response
+
+Answer `200` with:
+
+<ResponseField name="challenge_response" type="string" required>
+  `HMAC-SHA256(key, challenge)` as lowercase hex.
+</ResponseField>
+
+<ResponseField name="capabilities" type="string[]" required>
+  The features your site supports. Must include `posts.create` and `posts.update`. See [Capabilities](/capabilities).
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  A name for your integration.
+</ResponseField>
+
+<ResponseField name="version" type="string">
+  Your integration's version. RankHouse saves it with the connection.
+</ResponseField>
+
+```json
+{
+  "name": "My website",
+  "version": "1.0.0",
+  "capabilities": ["posts.create", "posts.update", "seo", "pages.list"],
+  "challenge_response": "5d0b8c6e...41f2"
+}
+```
+
+## Example
+
+<CodeGroup>
+
+```javascript Node.js
+router.post("/handshake", (req, res) => {
+  res.json({
+    name: "My website",
+    version: "1.0.0",
+    capabilities: ["posts.create", "posts.update", "seo", "pages.list"],
+    challenge_response: crypto
+      .createHmac("sha256", process.env.RANKHOUSE_API_KEY)
+      .update(String(req.body.challenge || ""))
+      .digest("hex"),
+  });
+});
+```
+
+```python Python
+@router.post("/handshake")
+async def handshake(request: Request):
+    body = await request.json()
+    return {
+        "name": "My website",
+        "version": "1.0.0",
+        "capabilities": ["posts.create", "posts.update", "seo", "pages.list"],
+        "challenge_response": hmac.new(
+            API_KEY.encode(), str(body.get("challenge", "")).encode(), hashlib.sha256
+        ).hexdigest(),
+    }
+```
+
+```php PHP
+<?php
+reply(200, [
+    'name' => 'My website',
+    'version' => '1.0.0',
+    'capabilities' => ['posts.create', 'posts.update', 'seo', 'pages.list'],
+    'challenge_response' => hash_hmac('sha256', (string) ($body['challenge'] ?? ''), $apiKey),
+]);
+```
+
+</CodeGroup>
+
+## When it fails
+
+The Custom Website card shows the reason and nothing is saved. The common ones are in [Troubleshooting](/troubleshooting#connecting).

@@ -1,0 +1,46 @@
+---
+title: "Capabilities"
+description: "Your handshake reply lists the features your site supports. RankHouse only calls what you list."
+icon: toggle-on
+---
+
+The `capabilities` list in your [handshake](/endpoints/handshake) reply tells RankHouse which endpoints you built. RankHouse sends requests only to those endpoints, and the Custom Website card shows the list under **Supported features**.
+
+```json
+{
+  "name": "My website",
+  "version": "1.0.0",
+  "capabilities": ["posts.create", "posts.update", "seo", "pages.list"],
+  "challenge_response": "..."
+}
+```
+
+## The list
+
+| Capability | Endpoints you build | What it switches on | Shown as |
+| --- | --- | --- | --- |
+| `posts.create` | [`POST /posts`](/endpoints/create-post) | **Required.** New blog posts on your site | Blog publishing |
+| `posts.update` | [`PUT /posts/{id}`](/endpoints/update-post) | **Required.** Changes to posts RankHouse already sent | Blog updates |
+| `seo` | [`PUT /seo`](/endpoints/seo) | New titles and descriptions on pages you already have | SEO updates |
+| `pages.list` | [`GET /pages`](/endpoints/pages) | Your page ids matched to the pages RankHouse found on your site, and the **Sync pages** button | Page listing |
+| `blog_categories` | [`GET /blog-categories`](/endpoints/categories-and-authors) | Your categories in the RankHouse editor | Blog categories |
+| `authors` | [`GET /authors`](/endpoints/categories-and-authors) | Your authors in the RankHouse editor | Authors |
+
+Names are case-sensitive.
+
+<Note>
+RankHouse won't connect unless the list includes both `posts.create` and `posts.update`. Names it doesn't know are dropped without an error, so after connecting, check that **Supported features** shows everything you meant to list.
+</Note>
+
+## Features you leave out
+
+- RankHouse never sends a request to an endpoint you didn't list.
+- The feature stays off for the site owner. For example, without `seo`, new page titles stay in RankHouse instead of reaching your site.
+
+## Adding a feature later
+
+1. Build the endpoint.
+2. Add its name to the `capabilities` list in your handshake reply.
+3. Ask the site owner to press **Re-verify** on the Custom Website card.
+
+RankHouse runs the handshake again and saves the new list. The key doesn't change.

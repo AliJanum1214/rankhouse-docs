@@ -1,0 +1,122 @@
+---
+title: "SEO updates"
+description: "PUT /seo. A new title tag and meta description for a page already on your site. Optional, capability seo."
+icon: magnifying-glass-chart
+---
+
+```http
+PUT {base_url}/seo
+```
+
+RankHouse checks the site for pages with a missing, duplicate, too long or too short title, or a missing or duplicate description, and writes better ones. With the `seo` capability, it sends them here.
+
+Only the SEO fields change. Leave the page's content alone.
+
+## Request
+
+The body names the page in up to three ways. Use the first one that finds a page: your id, then the URL, then the slug.
+
+<ParamField body="id" type="string">
+  Your id for the page, when RankHouse knows it, for example from [`GET /pages`](/endpoints/pages).
+</ParamField>
+
+<ParamField body="url" type="string">
+  The page's full URL, as RankHouse found it on your site.
+</ParamField>
+
+<ParamField body="slug" type="string">
+  The last part of the page's URL, for example `trail-runner-x`.
+</ParamField>
+
+<ParamField body="seo" type="object" required>
+  <Expandable title="seo">
+    <ParamField body="title" type="string" required>
+      The new title tag.
+    </ParamField>
+    <ParamField body="description" type="string" required>
+      The new meta description.
+    </ParamField>
+    <ParamField body="keywords" type="string[]">
+      Target keywords. Sent only when there are some.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+At least one of `id`, `url` and `slug` is always there, and often all three.
+
+```json Example request
+{
+  "id": "8842",
+  "url": "https://your-site.com/shoes/trail-runner-x",
+  "slug": "trail-runner-x",
+  "seo": {
+    "title": "Trail Runner X: Light Trail Shoe With a Rock Plate",
+    "description": "240 g, a rock plate and a grippy outsole for rocky descents.",
+    "keywords": ["trail shoe", "trail runner x"]
+  }
+}
+```
+
+Save the values wherever your pages read them from: columns on the page, front matter, or your SEO plugin's storage. What counts is that the page's `<title>` and `<meta name="description">` show them.
+
+## Response
+
+<ResponseField name="id" type="string" required>
+  Your id for the page you updated.
+</ResponseField>
+
+```json
+{ "id": "8842" }
+```
+
+If no page matches, answer `404` with `{ "error": "Page not found" }`.
+
+## Example
+
+<CodeGroup>
+
+```javascript Node.js
+router.put("/seo", async (req, res) => {
+  const { id, url, slug, seo } = req.body;
+  const page =
+    (id && (await db.pages.find(id))) ||
+    (url && (await db.pages.findByUrl(url))) ||
+    (slug && (await db.pages.findBySlug(slug)));
+  if (!page) return res.status(404).json({ error: "Page not found" });
+  await db.pages.update(page.id, { meta_title: seo.title, meta_description: seo.description });
+  res.json({ id: String(page.id) });
+});
+```
+
+```python Python
+@router.put("/seo")
+async def update_seo(request: Request):
+    body = await request.json()
+    page = (
+        (body.get("id") and db.pages.find(body["id"]))
+        or (body.get("url") and db.pages.find_by_url(body["url"]))
+        or (body.get("slug") and db.pages.find_by_slug(body["slug"]))
+    )
+    if not page:
+        raise HTTPException(404, "Page not found")
+    seo = body["seo"]
+    db.pages.update(page.id, meta_title=seo["title"], meta_description=seo["description"])
+    return {"id": str(page.id)}
+```
+
+```php PHP
+<?php
+$page = (!empty($body['id']) ? $db->findPage($body['id']) : null)
+    ?? (!empty($body['url']) ? $db->findPageByUrl($body['url']) : null)
+    ?? (!empty($body['slug']) ? $db->findPageBySlug($body['slug']) : null);
+if (!$page) {
+    reply(404, ['error' => 'Page not found']);
+}
+$db->updatePage($page['id'], [
+    'meta_title' => $body['seo']['title'],
+    'meta_description' => $body['seo']['description'],
+]);
+reply(200, ['id' => (string) $page['id']]);
+```
+
+</CodeGroup>

@@ -1,0 +1,168 @@
+---
+title: "Create a post"
+description: "POST /posts. A new blog post from RankHouse. Save it and answer with its id. Required."
+icon: file-plus
+---
+
+```http
+POST {base_url}/posts
+```
+
+RankHouse calls this when a blog post is published: from the editor, from the publishing list, or by the agent when the site owner has turned on automatic publishing.
+
+## Request
+
+Every field below is sent on every new post, with an empty value when there's nothing to send. Only `date`, `reading_time` and `language` can be missing.
+
+<ParamField body="title" type="string" required>
+  The post title. Show it as the page heading.
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  The body as HTML, with the title heading already taken out, so it doesn't appear twice.
+</ParamField>
+
+<ParamField body="excerpt" type="string" required>
+  A short summary. Can be `""`.
+</ParamField>
+
+<ParamField body="status" type="string" required>
+  `"publish"` or `"draft"`. Show a `publish` post on your live site. Save a `draft` post without showing it to visitors.
+</ParamField>
+
+<ParamField body="categories" type="string[]" required>
+  Category **names**, not ids. Can be `[]`.
+</ParamField>
+
+<ParamField body="tags" type="string[]" required>
+  Tag names. Can be `[]`.
+</ParamField>
+
+<ParamField body="author" type="string" required>
+  The author's display name. Can be `""`.
+</ParamField>
+
+<ParamField body="featured_image" type="string" required>
+  A link to the post's main image. Download it to your own storage or link to it directly. Can be `""`.
+</ParamField>
+
+<ParamField body="seo" type="object" required>
+  The page's SEO fields.
+
+  <Expandable title="seo">
+    <ParamField body="title" type="string" required>
+      The title tag. Falls back to the post title.
+    </ParamField>
+    <ParamField body="description" type="string" required>
+      The meta description. Falls back to the excerpt.
+    </ParamField>
+    <ParamField body="keywords" type="string[]" required>
+      Target keywords. Can be `[]`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="source_id" type="string" required>
+  RankHouse's id for this post. Store it with the post. If a post arrives with a `source_id` you already have, update that post instead of making a second copy.
+</ParamField>
+
+<ParamField body="date" type="string">
+  When it was sent, as `YYYY-MM-DD HH:MM:SS` in UTC.
+</ParamField>
+
+<ParamField body="reading_time" type="string">
+  For example `"5 minutes"`.
+</ParamField>
+
+<ParamField body="language" type="string">
+  The language the post is written in, as a code such as `"en"`. Useful when your site files posts by language.
+</ParamField>
+
+```json Example request
+{
+  "title": "10 best trail running shoes in 2026",
+  "content": "<p>We ran 400 km in ten pairs...</p>",
+  "excerpt": "Our picks after 400 km on rocky trails.",
+  "status": "publish",
+  "categories": ["Running", "Gear"],
+  "tags": ["trail shoes", "running"],
+  "author": "Jane Doe",
+  "featured_image": "https://images.example.com/hero-9f2ka83b.png",
+  "seo": {
+    "title": "10 Best Trail Running Shoes in 2026",
+    "description": "Our picks after 400 km on rocky trails.",
+    "keywords": ["trail running shoes", "best trail shoes"]
+  },
+  "source_id": "6720f1c2a4b5c6d7e8f90123",
+  "date": "2026-10-29 14:22:01",
+  "reading_time": "5 minutes",
+  "language": "en"
+}
+```
+
+## Response
+
+Answer with any `2xx` status and the id you gave the post.
+
+<ResponseField name="id" type="string" required>
+  Your id for the post. RankHouse keeps it exactly as you send it and uses it for every later [update](/endpoints/update-post). Numbers are fine too; they're stored as text.
+</ResponseField>
+
+```json
+{ "id": "1042" }
+```
+
+<Warning>
+A `2xx` reply without an `id` counts as a failed delivery, even though your site may have saved the post. Always include it.
+</Warning>
+
+## Errors
+
+Answer with a `4xx` or `5xx` status and an `error` message, for example `422` with `{ "error": "title and content are required" }`. RankHouse counts the post as not sent and keeps your message with the delivery.
+
+## Example
+
+<CodeGroup>
+
+```javascript Node.js
+router.post("/posts", async (req, res) => {
+  const body = req.body;
+  // A post sent twice: update the first copy.
+  const existing = await db.posts.findBySourceId(body.source_id);
+  if (existing) {
+    await db.posts.update(existing.id, body);
+    return res.json({ id: String(existing.id) });
+  }
+  const post = await db.posts.create(body);
+  res.status(201).json({ id: String(post.id) });
+});
+```
+
+```python Python
+@router.post("/posts")
+async def create_post(request: Request):
+    body = await request.json()
+    # A post sent twice: update the first copy.
+    existing = db.posts.find_by_source_id(body["source_id"])
+    if existing:
+        db.posts.update(existing.id, body)
+        return {"id": str(existing.id)}
+    post = db.posts.create(body)
+    return JSONResponse({"id": str(post.id)}, status_code=201)
+```
+
+```php PHP
+<?php
+// A post sent twice: update the first copy.
+$existing = $db->findPostBySourceId($body['source_id']);
+if ($existing) {
+    $db->updatePost($existing['id'], $body);
+    reply(200, ['id' => (string) $existing['id']]);
+}
+$id = $db->createPost($body);
+reply(201, ['id' => (string) $id]);
+```
+
+</CodeGroup>
+
+`db` stands for your own data layer. The [sample receivers](/samples/node) have a version that runs as-is.

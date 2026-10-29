@@ -1,0 +1,84 @@
+---
+title: "Update a post"
+description: "PUT /posts/{id}. Changes to a post RankHouse already sent. Change only the fields that arrive. Required."
+icon: file-pen
+---
+
+```http
+PUT {base_url}/posts/{id}
+```
+
+`{id}` is the id your site returned from [`POST /posts`](/endpoints/create-post), URL-encoded.
+
+## Request
+
+The body has the same fields as [creating a post](/endpoints/create-post#request), but any of them can be missing. **Change only the fields that arrive** and leave every other field as it is. Many updates are small:
+
+```json A new body only
+{
+  "content": "<p>Updated after testing two more pairs...</p>",
+  "source_id": "6720f1c2a4b5c6d7e8f90123"
+}
+```
+
+```json A status change only
+{ "status": "draft" }
+```
+
+A full update carries every field, in the same shape as a new post.
+
+## Response
+
+Answer `200` with the post's id:
+
+<ResponseField name="id" type="string" required>
+  The same id.
+</ResponseField>
+
+If you don't have a post with that id, answer `404` with `{ "error": "Post not found" }`.
+
+## Example
+
+<CodeGroup>
+
+```javascript Node.js
+const POST_FIELDS = ["title", "content", "excerpt", "status", "categories", "tags",
+  "author", "featured_image", "seo", "date", "reading_time", "language"];
+
+router.put("/posts/:id", async (req, res) => {
+  const post = await db.posts.find(req.params.id);
+  if (!post) return res.status(404).json({ error: "Post not found" });
+  const changes = {};
+  for (const key of POST_FIELDS) if (key in req.body) changes[key] = req.body[key];
+  await db.posts.update(post.id, changes);
+  res.json({ id: String(post.id) });
+});
+```
+
+```python Python
+POST_FIELDS = ("title", "content", "excerpt", "status", "categories", "tags",
+               "author", "featured_image", "seo", "date", "reading_time", "language")
+
+@router.put("/posts/{post_id}")
+async def update_post(post_id: str, request: Request):
+    post = db.posts.find(post_id)
+    if not post:
+        raise HTTPException(404, "Post not found")
+    body = await request.json()
+    db.posts.update(post_id, {key: body[key] for key in POST_FIELDS if key in body})
+    return {"id": post_id}
+```
+
+```php PHP
+<?php
+$post = $db->findPost($id);
+if (!$post) {
+    reply(404, ['error' => 'Post not found']);
+}
+$fields = ['title', 'content', 'excerpt', 'status', 'categories', 'tags',
+    'author', 'featured_image', 'seo', 'date', 'reading_time', 'language'];
+$db->updatePost($id, array_intersect_key($body, array_flip($fields)));
+reply(200, ['id' => (string) $id]);
+```
+
+</CodeGroup>

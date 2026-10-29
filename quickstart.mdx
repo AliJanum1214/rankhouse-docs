@@ -1,47 +1,69 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Run a sample receiver, connect it to RankHouse and publish a test post."
+icon: rocket
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This takes about 20 minutes. You'll run one of our sample receivers on your machine, connect it to RankHouse, and watch a post arrive. Then you move the same endpoints into your real site.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Get the key">
+    In RankHouse, open **Account → Integrations**, press **Connect** on **Custom Website**, then press **Generate key**. Use **Show** or **Copy** to read it. The key is 64 characters long and belongs to one website.
+
+    If you're the developer and someone else owns the RankHouse account, ask them for the key through a password manager or another private channel, not in a shared chat.
+  </Step>
+
+  <Step title="Run a sample receiver">
+    Pick your language and start the sample with the key. Each sample is one file that answers every endpoint RankHouse uses.
+
+    <CardGroup cols={3}>
+      <Card title="Node.js" icon="node-js" href="/samples/node" />
+      <Card title="Python" icon="python" href="/samples/python" />
+      <Card title="PHP" icon="php" href="/samples/php" />
+    </CardGroup>
+
+    For example, with Node.js:
 
     ```bash
-    npm install your-package
+    npm install express
+    RANKHOUSE_API_KEY=your-64-character-key node server.js
+    # RankHouse receiver on http://localhost:4000/rankhouse
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
-    ```
+  <Step title="Make it reachable">
+    RankHouse's servers send the requests, so they must be able to reach your base URL over the internet. They can't reach `localhost` on your laptop.
+
+    Put the sample on an address **on your own domain**, over HTTPS. A staging server works, and so does a tunnel ([Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) or [ngrok](https://ngrok.com)) with a hostname on your domain. Your base URL is that address followed by `/rankhouse`, for example `https://staging.your-site.com/rankhouse`.
+
+    <Warning>
+    RankHouse remembers the domain a key first connects to (for example `https://your-site.com`) and refuses a different domain later, even after **Disconnect**. Any address on the same domain is fine: test on `https://staging.your-site.com` now, move to `https://www.your-site.com` later. A tunnel's own address, such as `abc123.ngrok-free.app`, counts as a different domain, so don't connect one to the account that will run your real site.
+    </Warning>
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
 
-    ```bash
-    your-cli start
-    ```
+  <Step title="Connect">
+    Paste the base URL into **API base URL** on the Custom Website card and press **Connect website**.
+
+    RankHouse sends a random challenge to `POST /handshake`. Your server signs it with the key and replies with the features it supports. When the signature matches, the card shows **Connected** and lists the features under **Supported features**. If it fails, the card shows why. See [Troubleshooting](/troubleshooting).
+  </Step>
+
+  <Step title="Publish a test post">
+    Open a blog post in RankHouse and press **Publish**. Your `POST /posts` endpoint receives it, saves it and answers with its id. In the sample, the new post shows up in `GET /pages`.
+
+    New connections start on **Manual Publish**: RankHouse sends nothing to your site until someone presses Publish. The site owner can change this later on the same card.
+  </Step>
+
+  <Step title="Move it into your site">
+    Build the same endpoints on your real site, against your real database. Then:
+
+    1. Put the key in your server's environment or secret store.
+    2. Serve the endpoints over HTTPS.
+    3. On the Custom Website card, press **Change**, paste the new base URL (on the same domain) and press **Connect website**.
+
+    RankHouse runs the handshake against the new address before it sends anything there.
   </Step>
 </Steps>
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+Added an endpoint later? List it in your handshake reply and press **Re-verify** on the Custom Website card. The key stays the same. See [Capabilities](/capabilities).
 </Tip>

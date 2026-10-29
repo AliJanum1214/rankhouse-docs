@@ -1,0 +1,65 @@
+---
+title: "Categories and authors"
+description: "GET /blog-categories and GET /authors. Your own lists in the RankHouse editor. Optional, capabilities blog_categories and authors."
+icon: users
+---
+
+With these, the site owner picks from your site's real categories and authors in the RankHouse editor, instead of typing names. The names they pick arrive in the `categories` and `author` fields of [new posts](/endpoints/create-post).
+
+Each one has its own capability, so you can build one without the other.
+
+## Categories
+
+```http
+GET {base_url}/blog-categories?per_page=100&page=1
+```
+
+Capability: `blog_categories`. Answer with a JSON array (or an object with the array in `items`):
+
+<ResponseField name="id" type="string" required>
+  Your id for the category.
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  The name shown in the editor and sent back in posts.
+</ResponseField>
+
+<ResponseField name="slug" type="string">
+  The category's URL slug.
+</ResponseField>
+
+```json
+[
+  { "id": "1", "name": "News", "slug": "news" },
+  { "id": "2", "name": "Guides", "slug": "guides" }
+]
+```
+
+## Authors
+
+```http
+GET {base_url}/authors?per_page=100&page=1
+```
+
+Capability: `authors`. Answer with a JSON array (or an object with the array in `items`):
+
+<ResponseField name="id" type="string" required>
+  Your id for the author.
+</ResponseField>
+
+<ResponseField name="display_name" type="string" required>
+  The name shown in the editor and sent back in posts. If you only have `name`, send that instead.
+</ResponseField>
+
+```json
+[
+  { "id": "7", "display_name": "Jane Doe" },
+  { "id": "9", "display_name": "Sam Lee" }
+]
+```
+
+## Notes
+
+- The editor reads the first page, up to 100 of each.
+- Posts carry **names**, not ids. Match them to your categories and authors by name when you save the post.
+- No user system? A short fixed list of author names is enough.
