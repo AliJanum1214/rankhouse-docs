@@ -34,11 +34,11 @@ This takes about 20 minutes. You'll run one of our sample receivers on your mach
   <Step title="Make it reachable">
     RankHouse's servers send the requests, so they must be able to reach your base URL over the internet. They can't reach `localhost` on your laptop.
 
-    Put the sample on an address **on your own domain**, over HTTPS. A staging server works, and so does a tunnel ([Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) or [ngrok](https://ngrok.com)) with a hostname on your domain. Your base URL is that address followed by `/rankhouse`, for example `https://staging.your-site.com/rankhouse`.
+    Put the sample on an HTTPS address that RankHouse can reach: a staging server, or a tunnel such as [ngrok](https://ngrok.com) or [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) in front of port 4000. Your base URL is that address followed by `/rankhouse`, for example `https://staging.your-site.com/rankhouse`.
 
-    <Warning>
-    RankHouse remembers the domain a key first connects to (for example `https://your-site.com`) and refuses a different domain later, even after **Disconnect**. Any address on the same domain is fine: test on `https://staging.your-site.com` now, move to `https://www.your-site.com` later. A tunnel's own address, such as `abc123.ngrok-free.app`, counts as a different domain, so don't connect one to the account that will run your real site.
-    </Warning>
+    <Note>
+    A connection belongs to one domain, such as `your-site.com`. Any address on that domain works later without reconnecting. Moving to a different domain, for example from a tunnel to your real site, is the last step below.
+    </Note>
   </Step>
 
   <Step title="Connect">
@@ -58,9 +58,11 @@ This takes about 20 minutes. You'll run one of our sample receivers on your mach
 
     1. Put the key in your server's environment or secret store.
     2. Serve the endpoints over HTTPS.
-    3. On the Custom Website card, press **Change**, paste the new base URL (on the same domain) and press **Connect website**.
+    3. Point RankHouse at the new address:
+       - **Same domain** as your test (for example `staging.your-site.com` to `www.your-site.com`): on the Custom Website card, press **Change**, paste the new base URL and press **Connect website**.
+       - **Another domain** (for example a tunnel address to your real site): press **Disconnect**, then **Generate key**. Put the new key on your server, paste the new base URL and press **Connect website**.
 
-    RankHouse runs the handshake against the new address before it sends anything there.
+    RankHouse runs the handshake against the new address before it sends anything there. After a move to another domain, posts sent to the old address show as **Not published** again, so you can publish them to the new site.
   </Step>
 </Steps>
 

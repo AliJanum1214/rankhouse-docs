@@ -18,7 +18,7 @@ This app answers the handshake, checks the key and signature on every request, a
     On Windows PowerShell, set the key first with `$env:RANKHOUSE_API_KEY="your-64-character-key"`, then run `uvicorn main:app --port 4000`.
   </Step>
   <Step title="Connect it">
-    RankHouse has to reach the app from the internet, so put it on an HTTPS address on your own domain, then paste that address followed by `/rankhouse` into **API base URL**. The [Quickstart](/quickstart) explains why the domain matters.
+    RankHouse has to reach the app from the internet. Put it on a staging server, or run a tunnel such as ngrok in front of port 4000, then paste that HTTPS address followed by `/rankhouse` into **API base URL**. See the [Quickstart](/quickstart).
   </Step>
 </Steps>
 
