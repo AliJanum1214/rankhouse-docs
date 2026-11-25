@@ -23,8 +23,10 @@ The `capabilities` list in your [handshake](/endpoints/handshake) reply tells Ra
 | `posts.update` | [`PUT /posts/{id}`](/endpoints/update-post) | **Required.** Changes to posts RankHouse already sent | Blog updates |
 | `seo` | [`PUT /seo`](/endpoints/seo) | New titles and descriptions on pages you already have | SEO updates |
 | `pages.list` | [`GET /pages`](/endpoints/pages) | Your page ids matched to the pages RankHouse found on your site, and the **Sync pages** button | Page listing |
-| `blog_categories` | [`GET /blog-categories`](/endpoints/categories-and-authors) | Your categories in the RankHouse editor | Blog categories |
+| `blog_categories` | [`GET /blog-categories`, `POST /blog-categories`](/endpoints/categories-and-authors) | Your categories in the RankHouse editor, and new ones added from it | Blog categories |
 | `authors` | [`GET /authors`](/endpoints/categories-and-authors) | Your authors in the RankHouse editor | Authors |
+| `products` | [`GET /products`, `POST /products`, `PUT /products/{id}`](/endpoints/products) | Rewritten product pages on your store | Products |
+| `product_categories` | [`GET /product-categories`, `POST /product-categories`, `PUT /product-categories/{id}`](/endpoints/products) | Rewritten product category pages on your store | Product categories |
 
 Names are case-sensitive.
 

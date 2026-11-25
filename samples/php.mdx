@@ -4,7 +4,7 @@ description: "A complete receiver in one plain PHP file, with no framework. It r
 icon: php
 ---
 
-This script answers the handshake, checks the key and signature on every request, and implements every endpoint RankHouse uses: posts, SEO updates, the page list, categories and authors. Posts are kept in a JSON file next to the script, so you can run it before touching your real database.
+This script answers the handshake, checks the key and signature on every request, and implements every blog endpoint RankHouse uses: posts, SEO updates, the page list, categories (listing and adding) and authors. Posts and categories are kept in a JSON file next to the script, so you can run it before touching your real database. For an online store, add the [product endpoints](/endpoints/products) too.
 
 <Steps>
   <Step title="Run it locally">
@@ -32,7 +32,8 @@ This script answers the handshake, checks the key and signature on every request
 <?php
 // A complete RankHouse receiver in one file (PHP 7.4+, no framework).
 // Run: RANKHOUSE_API_KEY=your-key php -S localhost:4000 index.php
-// Base URL to paste in RankHouse: http://localhost:4000/rankhouse
+// It listens on http://localhost:4000/rankhouse. RankHouse can't reach localhost:
+// paste the public HTTPS address in front of it (a tunnel or your server), plus /rankhouse.
 
 $apiKey = getenv('RANKHOUSE_API_KEY') ?: '';
 // The address your public pages live on, used for page URLs in GET /pages.
@@ -79,7 +80,7 @@ $route = rtrim($match[1] ?? '', '/') ?: '/';
 $store = is_file(STORE_FILE)
     ? json_decode(file_get_contents(STORE_FILE), true)
     : ['next_id' => 1, 'posts' => []];
-$categories = [
+$store['categories'] = $store['categories'] ?? [
     ['id' => '1', 'name' => 'News', 'slug' => 'news'],
     ['id' => '2', 'name' => 'Guides', 'slug' => 'guides'],
 ];
@@ -200,7 +201,24 @@ if ($method === 'GET' && $route === '/pages') {
 }
 
 if ($method === 'GET' && $route === '/blog-categories') {
-    reply(200, paginate($categories));
+    reply(200, paginate($store['categories']));
+}
+
+if ($method === 'POST' && $route === '/blog-categories') {
+    $name = trim((string) ($body['name'] ?? ''));
+    if ($name === '') {
+        reply(422, ['error' => 'name is required']);
+    }
+    // A category you already have: answer with it instead of a second copy.
+    foreach ($store['categories'] as $category) {
+        if (strtolower($category['name']) === strtolower($name)) {
+            reply(200, $category);
+        }
+    }
+    $category = ['id' => (string) (count($store['categories']) + 1), 'name' => $name, 'slug' => slugify($name)];
+    $store['categories'][] = $category;
+    save_store($store);
+    reply(201, $category);
 }
 
 if ($method === 'GET' && $route === '/authors') {

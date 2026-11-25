@@ -1,0 +1,179 @@
+---
+title: "Products and product categories"
+description: "GET, POST and PUT /products and /product-categories. Rewritten product and category pages for an online store. Optional, capabilities products and product_categories."
+icon: box
+---
+
+For an online store. RankHouse rewrites product pages and product category pages, and with these endpoints the new copy reaches your store. It sends copy only: never prices, stock or SKUs.
+
+Each has its own capability, so you can build one without the other:
+
+| Capability | Endpoints you build |
+| --- | --- |
+| `products` | `GET /products`, `POST /products`, `PUT /products/{id}` |
+| `product_categories` | `GET /product-categories`, `POST /product-categories`, `PUT /product-categories/{id}` |
+
+## When RankHouse calls them
+
+When a rewritten product page or category page is published: by the site owner from the editor or the **Publishing** screen, or by the agent when the site owner has turned on automatic publishing.
+
+- **RankHouse has your id for it:** it sends `PUT /products/{id}`. It learns your ids from [`GET /pages`](/endpoints/pages) (pages listed with type `product` or `product_category`) and from your reply to an earlier `POST`.
+- **The site owner publishes one item and RankHouse has no id:** it sends `POST /products`.
+- **Automatic publishing, or an update of several items at once, with no id:** it reads `GET /products` page by page and looks for a product whose `slug` matches the last part of the product page's URL. If none matches, that item fails with "No product found for slug" and nothing is created.
+
+Product category pages work the same way, on `/product-categories`.
+
+<Tip>
+Build [`GET /pages`](/endpoints/pages) and list your products and product categories in it. Then RankHouse knows your ids and updates the products you already have, instead of sending them as new ones.
+</Tip>
+
+## Products
+
+### Create a product
+
+```http
+POST {base_url}/products
+```
+
+<ParamField body="name" type="string" required>
+  The product's name.
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Always `"simple"`.
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  The new product description as HTML, with the title heading already taken out.
+</ParamField>
+
+<ParamField body="short_description" type="string" required>
+  A short summary. Can be `""`.
+</ParamField>
+
+<ParamField body="categories" type="string[]" required>
+  Product category **names**, not ids. Can be `[]`.
+</ParamField>
+
+<ParamField body="tags" type="string[]" required>
+  Tag names. Can be `[]`.
+</ParamField>
+
+<ParamField body="images" type="object[]" required>
+  `[{ "url": "...", "alt": "..." }]` with the product's image, or `[]`.
+</ParamField>
+
+<ParamField body="source_id" type="string" required>
+  RankHouse's id for this copy. Store it with the product.
+</ParamField>
+
+<ParamField body="status" type="string">
+  `"publish"` or `"draft"`, from the publishing mode the site owner picked.
+</ParamField>
+
+<ParamField body="language" type="string">
+  The language the copy is written in, as a code such as `"en"`.
+</ParamField>
+
+```json Example request
+{
+  "name": "Trail Runner X",
+  "type": "simple",
+  "description": "<p>A light trail shoe with a rock plate...</p>",
+  "short_description": "240 g, a rock plate and a grippy outsole.",
+  "categories": ["Trail shoes"],
+  "tags": ["trail shoe", "trail runner x"],
+  "images": [{ "url": "https://images.example.com/trail-runner-x.png", "alt": "Trail Runner X" }],
+  "source_id": "6720f1c2a4b5c6d7e8f90456",
+  "status": "publish",
+  "language": "en"
+}
+```
+
+The copy is usually for a product you already have, because RankHouse rewrote an existing product page. Before you create one, look for a product with the same `source_id` or `name`, and update that one instead.
+
+Answer with any `2xx` status and your id for the product:
+
+```json
+{ "id": "8842" }
+```
+
+RankHouse keeps the id and sends `PUT /products/{id}` from then on.
+
+### Update a product
+
+```http
+PUT {base_url}/products/{id}
+```
+
+`{id}` is your id for the product, URL-encoded. The body has the same fields as creating one, but any of them can be missing. **Change only the fields that arrive.** A content-only update, for example, sends just `description` and `source_id`. Automatic publishing and updates of several products at once leave out `status`, so a product's live state stays as it is.
+
+Answer `200` with `{ "id": "..." }`. If you don't have that product, answer `404` with `{ "error": "Product not found" }`.
+
+### List products
+
+```http
+GET {base_url}/products?per_page=100&page=1
+```
+
+Answer with a JSON array (or an object with the array in `items`). RankHouse reads `id` and `slug` from each product, to find one by the last part of its URL. It asks for page 1, 2, 3 and so on, and stops at the first reply with fewer than `per_page` items.
+
+```json
+[
+  { "id": "8842", "slug": "trail-runner-x", "name": "Trail Runner X" }
+]
+```
+
+## Product categories
+
+### Create a product category
+
+```http
+POST {base_url}/product-categories
+```
+
+<ParamField body="name" type="string" required>
+  The category's name.
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  The new category description as HTML, with the title heading already taken out.
+</ParamField>
+
+<ParamField body="image" type="string" required>
+  A link to the category's image, or `""`.
+</ParamField>
+
+<ParamField body="source_id" type="string" required>
+  RankHouse's id for this copy. Store it with the category.
+</ParamField>
+
+<ParamField body="language" type="string">
+  The language the copy is written in, as a code such as `"en"`.
+</ParamField>
+
+Categories have no `status`. As with products, the copy is usually for a category you already have, so look for one with the same `source_id` or `name` first. Answer with any `2xx` status and `{ "id": "..." }`.
+
+### Update a product category
+
+```http
+PUT {base_url}/product-categories/{id}
+```
+
+The same fields, any of them missing. **Change only the fields that arrive.** A content-only update sends just `description`. Answer `200` with `{ "id": "..." }`, or `404` with `{ "error": "Category not found" }`.
+
+### List product categories
+
+```http
+GET {base_url}/product-categories?per_page=100&page=1
+```
+
+The same as listing products: a JSON array with `id` and `slug` for each category, read page by page.
+
+## Titles and descriptions
+
+The page's new title tag and meta description don't travel in these bodies. With the [`seo`](/endpoints/seo) capability, RankHouse sends them to `PUT /seo` as well, right after a product or category update from automatic publishing or an update of several items at once.
+
+## Errors
+
+Answer with a `4xx` or `5xx` status and an `error` message. RankHouse counts the item as not sent and shows your message to the site owner.

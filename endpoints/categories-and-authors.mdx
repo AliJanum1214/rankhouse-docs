@@ -1,6 +1,6 @@
 ---
 title: "Categories and authors"
-description: "GET /blog-categories and GET /authors. Your own lists in the RankHouse editor. Optional, capabilities blog_categories and authors."
+description: "GET and POST /blog-categories, and GET /authors. Your own lists in the RankHouse editor, and new categories added from it. Optional, capabilities blog_categories and authors."
 icon: users
 ---
 
@@ -34,6 +34,42 @@ Capability: `blog_categories`. Answer with a JSON array (or an object with the a
   { "id": "2", "name": "Guides", "slug": "guides" }
 ]
 ```
+
+### Add a category
+
+```http
+POST {base_url}/blog-categories
+```
+
+Also capability `blog_categories`, so build it together with the list. RankHouse calls it when the site owner adds a category your site doesn't have yet: with **Add as a new category** in the editor's category picker, by accepting a suggested category, or through an AI assistant connected to RankHouse.
+
+<ParamField body="name" type="string" required>
+  The new category's name.
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Always `""` for now.
+</ParamField>
+
+<ParamField body="slug" type="string" required>
+  Always `""` for now. Make the slug from the name yourself.
+</ParamField>
+
+<ParamField body="parent" type="number" required>
+  Always `0` (no parent).
+</ParamField>
+
+```json Example request
+{ "name": "Trail running", "description": "", "slug": "", "parent": 0 }
+```
+
+Answer with any `2xx` status and the category as you saved it, with the same fields as the list: `id`, `name` and `slug`. RankHouse files posts under the `name` you send back.
+
+```json
+{ "id": "3", "name": "Trail running", "slug": "trail-running" }
+```
+
+If you already have a category with that name (in any letter case), answer with that one instead of making a second copy. If you can't add it, answer with a `4xx` status and `{ "error": "..." }`. The site owner sees your message.
 
 ## Authors
 

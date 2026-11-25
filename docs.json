@@ -28,7 +28,8 @@
           "endpoints/update-post",
           "endpoints/seo",
           "endpoints/pages",
-          "endpoints/categories-and-authors"
+          "endpoints/categories-and-authors",
+          "endpoints/products"
         ]
       },
       {

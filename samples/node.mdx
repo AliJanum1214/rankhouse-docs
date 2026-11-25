@@ -4,7 +4,7 @@ description: "A complete receiver in one file. It runs as-is, then you swap the 
 icon: node-js
 ---
 
-This server answers the handshake, checks the key and signature on every request, and implements every endpoint RankHouse uses: posts, SEO updates, the page list, categories and authors. Posts live in memory, so you can run it before touching your real database.
+This server answers the handshake, checks the key and signature on every request, and implements every blog endpoint RankHouse uses: posts, SEO updates, the page list, categories (listing and adding) and authors. Posts live in memory, so you can run it before touching your real database. For an online store, add the [product endpoints](/endpoints/products) too.
 
 <Steps>
   <Step title="Install and run">
@@ -25,7 +25,8 @@ This server answers the handshake, checks the key and signature on every request
 ```javascript server.js
 // A complete RankHouse receiver in one file (Node.js 18+, Express 4 or 5).
 // Run: RANKHOUSE_API_KEY=your-key node server.js
-// Base URL to paste in RankHouse: http://localhost:4000/rankhouse
+// It listens on http://localhost:4000/rankhouse. RankHouse can't reach localhost:
+// paste the public HTTPS address in front of it (a tunnel or staging server), plus /rankhouse.
 const crypto = require("crypto");
 const express = require("express");
 
@@ -159,6 +160,18 @@ router.get("/pages", (req, res) => {
 });
 
 router.get("/blog-categories", (req, res) => res.json(paginate(categories, req.query)));
+
+router.post("/blog-categories", (req, res) => {
+  const name = String((req.body || {}).name || "").trim();
+  if (!name) return res.status(422).json({ error: "name is required" });
+  // A category you already have: answer with it instead of a second copy.
+  const existing = categories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+  if (existing) return res.json(existing);
+  const category = { id: String(categories.length + 1), name, slug: slugify(name) };
+  categories.push(category);
+  res.status(201).json(category);
+});
+
 router.get("/authors", (req, res) => res.json(paginate(authors, req.query)));
 
 const app = express();

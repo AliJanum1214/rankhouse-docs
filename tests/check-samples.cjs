@@ -223,6 +223,20 @@ async function runChecks(base, siteUrl) {
     assert(auths.ok && auths.data.length && auths.data.every((a) => a.display_name || a.name), "authors without names");
   });
 
+  // The body RankHouse sends when the owner adds a category
+  // (platform/blogCategories.js createBlogCategoryApi).
+  const newCategory = (name) => ({ name, description: "", slug: "", parent: 0 });
+  await check("POST /blog-categories: adds a category and answers with it", async () => {
+    const r = await custom.customCreateCategory({ integration, body: newCategory("Trail running") });
+    assert(r.ok, `HTTP ${r.status} ${JSON.stringify(r.data)}`);
+    assert(r.data && r.data.id != null && r.data.name === "Trail running", `bad reply ${JSON.stringify(r.data)}`);
+    const again = await custom.customCreateCategory({ integration, body: newCategory("trail RUNNING") });
+    assert(again.ok, `HTTP ${again.status}`);
+    assert.strictEqual(String(again.data.id), String(r.data.id), "a second copy was made");
+    const cats = await custom.customGetCategories({ integration });
+    assert.strictEqual(cats.data.filter((c) => c.name.toLowerCase() === "trail running").length, 1);
+  });
+
   await check("security: a wrong key is refused", async () => {
     const other = { ...integration, api_key: crypto.randomBytes(32).toString("hex") };
     const r = await custom.callCustom({ integration: other, path: "/pages", method: "GET" });

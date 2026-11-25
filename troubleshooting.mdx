@@ -73,6 +73,14 @@ When **Connect website** or **Re-verify** fails, the Custom Website card shows o
     List `blog_categories` or `authors` in your handshake, then press **Re-verify**. Check the result under **Supported features**.
   </Accordion>
 
+  <Accordion title="Adding a category from RankHouse fails">
+    With `blog_categories` listed, RankHouse also sends new categories to [`POST /blog-categories`](/endpoints/categories-and-authors#add-a-category). Build it next to the list, and answer with the category's `id`, `name` and `slug`.
+  </Accordion>
+
+  <Accordion title="Product pages don't reach my store, or arrive as new products">
+    List `products` or `product_categories` in your handshake and press **Re-verify**. To update the products you already have instead of getting new ones, list them in [`GET /pages`](/endpoints/pages) with type `product` or `product_category` and press **Sync pages**. See [Products and product categories](/endpoints/products).
+  </Accordion>
+
   <Accordion title="New titles and descriptions don't reach my pages">
     You need the `seo` capability and a working [`PUT /seo`](/endpoints/seo). If your endpoint can't find pages, add [`GET /pages`](/endpoints/pages) so RankHouse can name each page by your id, then press **Sync pages**.
   </Accordion>

@@ -10,7 +10,7 @@
 
 - Document only what the RankHouse server does today. Check every claim against the files listed in `README.md` before writing it.
 - The signature headers are `X-RankHouse-Timestamp` and `X-RankHouse-Signature`. Never print any other header names for them.
-- Don't document endpoints the product doesn't call: post deletion, products and product categories stay out until the product uses them.
+- Don't document endpoints the product doesn't call. Post deletion and the author writes (`GET /authors/{id}`, `POST`, `PUT`, `DELETE /authors`), and editing or deleting blog categories, stay out until the product uses them. Products, product categories (create, update, list) and adding a blog category are used, and documented (checked 2026-11-25).
 - After changing a sample in `samples/`, run `node tests/check-samples.cjs` (see `README.md`).
 - Support address: support@rankhouse.ai.
 

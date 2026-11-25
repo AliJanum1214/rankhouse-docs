@@ -16,6 +16,9 @@ truth lives in the main RankHouse repo:
 | New post body | same file, `buildCustomPostBody` |
 | SEO update body | `server/controllers/integrations/platform/postStructure.js`, `buildPageSeoBody` |
 | Page list fields | `server/controllers/integrations/platform/syncSitePages.js` |
+| Adding a blog category | `server/controllers/integrations/platform/blogCategories.js`, `createBlogCategoryApi` |
+| Product and product category bodies | `server/controllers/integrations/platform/postStructure.js`, `buildWooProductBody` and `buildWooCategoryBody` |
+| When products are created or updated | `server/controllers/integrations/platform/index.js` (`sendPosts`) and `publishContent.js` (`bulkUpdateToCustom`, `updateContentOnlyToCustom`) |
 | Button labels | `client/src/components/account/AccountIntegrations.js` |
 
 Change the server first, then the docs.
@@ -38,8 +41,13 @@ signing code. The script takes the code straight from the pages, runs each
 sample and sends it real requests:
 
 ```bash
-RANKHOUSE_SERVER="../Rank House/server" node tests/check-samples.cjs
+NODE_ENV=development ALLOW_LOCAL_CUSTOMER_SITES=1 \
+  RANKHOUSE_SERVER="../Rank House/server" node tests/check-samples.cjs
 ```
+
+The two settings let the server's code call the samples on `127.0.0.1`. Without
+them it refuses local addresses, as it does in production, and most checks fail
+with "fetch failed".
 
 It needs the RankHouse repo next to this one (with `server/node_modules`
 installed), Python with `fastapi` and `uvicorn`, and PHP. Set `PYTHON` or `PHP`

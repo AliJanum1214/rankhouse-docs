@@ -4,7 +4,7 @@ description: "A complete receiver in one file. It runs as-is, then you swap the 
 icon: python
 ---
 
-This app answers the handshake, checks the key and signature on every request, and implements every endpoint RankHouse uses: posts, SEO updates, the page list, categories and authors. Posts live in memory, so you can run it before touching your real database.
+This app answers the handshake, checks the key and signature on every request, and implements every blog endpoint RankHouse uses: posts, SEO updates, the page list, categories (listing and adding) and authors. Posts live in memory, so you can run it before touching your real database. For an online store, add the [product endpoints](/endpoints/products) too.
 
 <Steps>
   <Step title="Install and run">
@@ -25,7 +25,8 @@ This app answers the handshake, checks the key and signature on every request, a
 ```python main.py
 # A complete RankHouse receiver in one file (Python 3.9+, FastAPI).
 # Run: RANKHOUSE_API_KEY=your-key uvicorn main:app --port 4000
-# Base URL to paste in RankHouse: http://localhost:4000/rankhouse
+# It listens on http://localhost:4000/rankhouse. RankHouse can't reach localhost:
+# paste the public HTTPS address in front of it (a tunnel or staging server), plus /rankhouse.
 import hashlib
 import hmac
 import itertools
@@ -167,6 +168,20 @@ async def list_pages(request: Request):
 @router.get("/blog-categories")
 async def list_categories(request: Request):
     return paginate(categories, request)
+
+
+@router.post("/blog-categories")
+async def add_category(request: Request):
+    name = str((await request.json()).get("name") or "").strip()
+    if not name:
+        raise HTTPException(422, "name is required")
+    # A category you already have: answer with it instead of a second copy.
+    existing = next((c for c in categories if c["name"].lower() == name.lower()), None)
+    if existing:
+        return existing
+    category = {"id": str(len(categories) + 1), "name": name, "slug": slugify(name)}
+    categories.append(category)
+    return JSONResponse(category, status_code=201)
 
 
 @router.get("/authors")
