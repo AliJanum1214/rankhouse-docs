@@ -37,6 +37,10 @@
         "pages": ["samples/node", "samples/python", "samples/php"]
       },
       {
+        "group": "Platforms",
+        "pages": ["platforms/wordpress"]
+      },
+      {
         "group": "Help",
         "pages": ["troubleshooting"]
       }

@@ -1,0 +1,69 @@
+---
+title: "WordPress"
+description: "Connect a WordPress site with the RankHouse plugin and one key. No code."
+icon: wordpress
+---
+
+On WordPress you don't build any endpoints. The **RankHouse** plugin answers RankHouse's requests for you: install it, paste one key, press **Connect**.
+
+## Before you start
+
+- WordPress 6.2 or newer, PHP 7.4 or newer.
+- Pretty permalinks: **Settings → Permalinks** set to anything except "Plain".
+- An `https://` site address.
+- WooCommerce 8.0 or newer is optional. Product and product category copy switches on when it's active.
+
+## Connect
+
+<Steps>
+  <Step title="Install the plugin">
+    In WordPress, go to **Plugins → Add New**, search for **RankHouse**, then install and activate it. Or [download it from WordPress.org](https://wordpress.org/plugins/rankhouse/) and upload it under **Plugins → Add New → Upload Plugin**.
+  </Step>
+  <Step title="Copy your key">
+    RankHouse shows the key on the **Connect your site** screen when you pick WordPress. You can also find it under **Account → Integrations → WordPress**. It's 64 characters long.
+  </Step>
+  <Step title="Paste it and connect">
+    In WordPress, open **Settings → RankHouse**, paste the key and press **Connect**. The status turns **Connected**, and the RankHouse screen moves on by itself.
+  </Step>
+  <Step title="Pick a default author (optional)">
+    On the same screen. RankHouse uses it when a post names an author your site doesn't have.
+  </Step>
+</Steps>
+
+## What reaches your site
+
+| Content | Where it lands |
+| --- | --- |
+| Blog posts | Posts, with the hero image, categories, tags, author, reading time and SEO fields |
+| Page SEO | Meta title, description and keywords on pages, posts, categories and products you already have |
+| Categories and authors | Read by RankHouse, so you can pick them in its editor |
+| Products and product categories | New copy and SEO fields on existing WooCommerce items |
+
+A new connection starts on **Manual Publish**: nothing reaches your site until someone presses **Publish** in RankHouse. Switch to **Agent Auto Publish** under **Account → Integrations → WordPress** and the agent publishes on its own.
+
+The plugin never creates, edits or deletes users, never changes prices, stock or SKUs, and never deletes anything for good. It can only move posts RankHouse published to the Trash.
+
+## SEO plugins and languages
+
+- **Yoast SEO, Rank Math and SEOPress:** the meta title, description and focus keyword go into the fields they read. With no SEO plugin, RankHouse's plugin prints the title tag and meta description itself. All in One SEO isn't supported yet.
+- **WPML and Polylang:** each post is filed under the language it was written in.
+
+## Disconnect
+
+In WordPress, open **Settings → RankHouse** and press **Disconnect**. Or revoke the key under **Account → Integrations → WordPress** in RankHouse. Deactivating the plugin also tells RankHouse to stop. Deleting the plugin never deletes your posts, pages or products.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connect fails straight away">
+    Check that **Settings → Permalinks** isn't set to "Plain". RankHouse calls your site's REST API with query strings, and the Plain form can't carry them. A security plugin or firewall that blocks `/wp-json/` stops it too.
+  </Accordion>
+  <Accordion title="&quot;That does not look like a RankHouse API key&quot;">
+    The key is 64 characters of 0-9 and a-f. Copy it again with the **Copy** button in RankHouse, with no spaces around it.
+  </Accordion>
+  <Accordion title="Images are missing on posts">
+    The plugin downloads images into your Media Library. Make sure your host allows outgoing requests to `rankhouseimages.blob.core.windows.net` and `storage.googleapis.com`.
+  </Accordion>
+</AccordionGroup>
+
+Still stuck? Email [support@rankhouse.ai](mailto:support@rankhouse.ai) with your site's address and the message you see.
